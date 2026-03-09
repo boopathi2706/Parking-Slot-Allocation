@@ -16,7 +16,7 @@ const Dashboard = () => {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:5000/api/dashboard', {
+        const res = await axios.get('https://parking-slot-allocation.onrender.com/api/dashboard', {
           headers: { Authorization: `Bearer ${token}` }
         });
         console.log("[FRONTEND DASHBOARD] Received Data:", res.data);

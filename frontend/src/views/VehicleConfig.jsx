@@ -36,7 +36,7 @@ const VehicleConfig = () => {
     const toastId = toast.loading('Initializing Slots...');
     try {
       const token = localStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/user/vehicle-config', config, {
+      await axios.put('https://parking-slot-allocation.onrender.com/api/user/vehicle-config', config, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Slots Configured Successfully!', { id: toastId });

@@ -19,7 +19,7 @@ async function testConfig() {
         const config = { twoWheeler: 10, fourWheeler: 20, bigVehicle: 5 };
 
         console.log("\nAttempting PUT /api/user/vehicle-config...");
-        const res = await axios.put('http://localhost:5000/api/user/vehicle-config', config, {
+        const res = await axios.put('https://parking-slot-allocation.onrender.com/api/user/vehicle-config', config, {
             headers: { Authorization: `Bearer ${token}` }
         });
 

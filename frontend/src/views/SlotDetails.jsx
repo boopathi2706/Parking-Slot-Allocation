@@ -12,7 +12,7 @@ const SlotDetails = () => {
   const fetchSlots = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/slots', {
+      const res = await axios.get('https://parking-slot-allocation.onrender.com/api/slots', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSlots(res.data);
@@ -29,7 +29,7 @@ const SlotDetails = () => {
     const toastId = toast.loading("Updating status...");
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/slots/${id}/status`, { status: newStatus }, {
+      await axios.put(`https://parking-slot-allocation.onrender.com/api/slots/${id}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success(`Slot marked as ${newStatus}`, { id: toastId });

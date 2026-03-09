@@ -23,7 +23,7 @@ const CustomerDetails = () => {
 
             const config = { headers: { Authorization: `Bearer ${token}` } };
             // Using consistent API base matching Dashboard
-            const API_BASE = "http://localhost:5000/api";
+            const API_BASE = "https://parking-slot-allocation.onrender.com/api";
 
             const [activeRes, historyRes] = await Promise.allSettled([
                 axios.get(`${API_BASE}/allocations`, config),
@@ -61,7 +61,7 @@ const CustomerDetails = () => {
         try {
             const token = localStorage.getItem('token');
             const endpoint = type === 'active' ? `allocations/${id}` : `history/${id}`;
-            await axios.delete(`http://localhost:5000/api/${endpoint}`, {
+            await axios.delete(`https://parking-slot-allocation.onrender.com/api/${endpoint}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("Record purged", { id: toastId });

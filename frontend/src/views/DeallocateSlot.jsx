@@ -20,7 +20,7 @@ const DeallocateSlot = () => {
     const toastId = toast.loading("Calculating...");
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:5000/api/allocations/calculate-exit', { vehicleNumber }, {
+      const res = await axios.post('https://parking-slot-allocation.onrender.com/api/allocations/calculate-exit', { vehicleNumber }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPreview(res.data);
@@ -38,7 +38,7 @@ const DeallocateSlot = () => {
     try {
       // 1. Complete Exit
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/allocations/complete-exit', {
+      await axios.post('https://parking-slot-allocation.onrender.com/api/allocations/complete-exit', {
         vehicleNumber: preview.data.vehicleNumber,
         otp,
         amount: preview.data.amount,

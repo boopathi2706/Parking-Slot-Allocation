@@ -28,7 +28,7 @@ const RegisterCompany = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/register", formData);
+      const response = await axios.post("https://parking-slot-allocation.onrender.com/api/auth/register", formData);
       localStorage.setItem("token", response.data.token);
       toast.success("Account Created!");
       setTimeout(() => navigate("/vehicle-config"), 1000);

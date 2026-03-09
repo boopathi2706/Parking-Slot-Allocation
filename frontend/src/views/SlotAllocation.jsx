@@ -20,7 +20,7 @@ const SlotAllocation = () => {
     const toastId = toast.loading("Checking availability...");
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:5000/api/allocations/allocate', formData, {
+      const res = await axios.post('https://parking-slot-allocation.onrender.com/api/allocations/allocate', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAllocationId(res.data.allocationId);
@@ -36,7 +36,7 @@ const SlotAllocation = () => {
     try {
       // 1. Verify Allocation
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/allocations/verify-allocate', { allocationId, otp }, {
+      await axios.post('https://parking-slot-allocation.onrender.com/api/allocations/verify-allocate', { allocationId, otp }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

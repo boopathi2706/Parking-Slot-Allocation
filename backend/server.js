@@ -11,7 +11,14 @@ const connectDB = require('./config/db');
 const app = express();
 
 // Middleware
-app.use(cors({ origin: '*' }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://parking-slot-allocation-123.vercel.app"
+    ]
+  })
+);
 app.use(express.json());
 
 // Connect Database

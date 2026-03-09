@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = 'https://parking-slot-allocation.onrender.com/api';
 
 async function verifyAll() {
     try {
