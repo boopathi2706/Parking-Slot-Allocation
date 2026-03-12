@@ -14,8 +14,8 @@ const app = express();
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "https://parking-slot-allocation-123.vercel.app"
+      process.env.CORS_LOCALHOST,
+      process.env.CORS_ORIGIN
     ]
   })
 );
