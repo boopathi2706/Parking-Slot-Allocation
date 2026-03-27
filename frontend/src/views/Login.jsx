@@ -5,6 +5,8 @@ import toast, { Toaster } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { MdLocalParking, MdPerson, MdLock } from "react-icons/md";
 import GlassCard from '../components/GlassCard';
+import BASE_URL from '../api.js';
+
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,7 +19,7 @@ const Login = () => {
     const toastId = toast.loading('Authenticating...');
 
     try {
-      const res = await axios.post('https://parking-slot-allocation.onrender.com/api/auth/login', formData);
+      const res = await axios.post(`${BASE_URL}/api/auth/login`, formData);
       localStorage.setItem('token', res.data.token);
       toast.success('Login Successful!', { id: toastId });
       setTimeout(() => navigate('/dashboard'), 1000);
@@ -69,12 +71,14 @@ const Login = () => {
                 type="password"
                 name="password"
                 required
+                minLength={8}
                 className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-                placeholder="••••••••"
+                placeholder="Min. 8 characters"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
             </div>
+            <p className="text-xs text-gray-400 ml-1">Password must be at least 8 characters.</p>
           </div>
 
           <motion.button

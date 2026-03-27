@@ -2,44 +2,48 @@ const Allocation = require('../models/Allocation');
 const Slot = require('../models/Slot');
 const History = require('../models/History');
 
-// Request Allocation (Send OTP)
+// Pending allocation temp store (in-memory, cleared on verify/cancel)
+// Structure: { [tempId]: { user, vehicleNumber, vehicleType, ownerName, ownerPhone, slotId, otp } }
+const pendingAllocations = {};
+
+// Request Allocation (Send OTP) — does NOT write to DB yet
 exports.allocationRequest = async (req, res) => {
     try {
         const { vehicleNumber, vehicleType, ownerName, ownerPhone, slotNumber } = req.body;
-        console.log(`[ALLOCATION TYPE] Request: ${vehicleNumber} (${vehicleType}) in ${slotNumber}`);
+        console.log(`[ALLOCATION] Request: ${vehicleNumber} (${vehicleType}) in ${slotNumber}`);
 
         // 1. Check if vehicle already has an active allocation for this user
         const existingAllocation = await Allocation.findOne({ vehicleNumber, user: req.user.id });
         if (existingAllocation) {
-            console.log(`[ALLOCATION] Vehicle ${vehicleNumber} already has an active allocation`);
             return res.status(400).json({ message: "Vehicle already has an active allocation" });
         }
 
         // 2. Check Slot Availability
         const slot = await Slot.findOne({ slotNumber, user: req.user.id });
-        if (!slot) {
-            console.log(`[ALLOCATION] Slot ${slotNumber} not found`);
-            return res.status(404).json({ message: "Slot not found" });
-        }
-        if (slot.status !== 'Free') {
-            console.log(`[ALLOCATION] Slot ${slotNumber} is ${slot.status}`);
-            return res.status(400).json({ message: "Slot is not free" });
-        }
+        if (!slot) return res.status(404).json({ message: "Slot not found" });
+        if (slot.status !== 'Free') return res.status(400).json({ message: `Slot is not free (currently ${slot.status})` });
 
-        // 2. Generate OTP (Mock)
+        // 3. Generate OTP (Mock) — NOT saved to DB yet
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        console.log(`[MOCK OTP] Allocation for ${vehicleNumber}: ${otp}`);
+        const tempId = `${req.user.id}_${Date.now()}`;
+        console.log(`[MOCK OTP] ${vehicleNumber}: ${otp} | tempId: ${tempId}`);
 
-        // 3. Create Pending Allocation (or just return OTP for client to verify -> then create)
-        // Better approach: Create unverified allocation ref
-        const newAllocation = new Allocation({
+        // 4. Hold in memory — DB write happens only after OTP is verified
+        pendingAllocations[tempId] = {
             user: req.user.id,
-            vehicleNumber, vehicleType, ownerName, ownerPhone, slotId: slot._id, otp
-        });
-        await newAllocation.save();
-        console.log(`[ALLOCATION] Saved pending allocation: ${newAllocation._id}`);
+            vehicleNumber, vehicleType, ownerName, ownerPhone,
+            slotId: slot._id, slotNumber,
+            otp,
+            createdAt: Date.now()
+        };
 
-        res.status(200).json({ success: true, message: "OTP sent to WhatsApp", allocationId: newAllocation._id, mockOtp: otp });
+        // Auto-expire pending allocation after 10 minutes
+        setTimeout(() => {
+            delete pendingAllocations[tempId];
+            console.log(`[ALLOCATION] Expired pending allocation: ${tempId}`);
+        }, 10 * 60 * 1000);
+
+        res.status(200).json({ success: true, message: "OTP sent to WhatsApp", allocationId: tempId, mockOtp: otp });
 
     } catch (error) {
         console.error(`[ALLOCATION] Error: ${error.message}`);
@@ -47,29 +51,36 @@ exports.allocationRequest = async (req, res) => {
     }
 };
 
-// Verify Allocation OTP
+// Verify Allocation OTP — writes to DB only on correct OTP
 exports.verifyAllocation = async (req, res) => {
     try {
         const { allocationId, otp } = req.body;
         console.log(`[VERIFY ALLOCATION] ID: ${allocationId}, OTP: ${otp}`);
 
-        const allocation = await Allocation.findOne({ _id: allocationId, user: req.user.id });
+        const pending = pendingAllocations[allocationId];
 
-        if (!allocation) {
-            console.log(`[VERIFY ALLOCATION] Allocation not found`);
-            return res.status(404).json({ message: "Allocation request not found" });
+        if (!pending || pending.user !== req.user.id) {
+            return res.status(404).json({ message: "Allocation request not found or already processed" });
         }
-        if (allocation.otp !== otp) {
-            console.log(`[VERIFY ALLOCATION] Invalid OTP for ${allocationId}`);
-            return res.status(400).json({ message: "Invalid OTP" });
+        if (pending.otp !== otp) {
+            return res.status(400).json({ message: "Invalid OTP. Please try again." });
         }
 
-        // Verify and Update Slot
-        allocation.isVerified = true;
-        // allocation.otp = undefined; // KEEP OTP FOR DEALLOCATION
-        await allocation.save();
+        // OTP is correct — now save to DB
+        const newAllocation = new Allocation({
+            user: pending.user,
+            vehicleNumber: pending.vehicleNumber,
+            vehicleType: pending.vehicleType,
+            ownerName: pending.ownerName,
+            ownerPhone: pending.ownerPhone,
+            slotId: pending.slotId,
+            otp: pending.otp,
+            isVerified: true
+        });
+        await newAllocation.save();
 
-        await Slot.findByIdAndUpdate(allocation.slotId, { status: 'Occupied' });
+        // Mark slot as Occupied
+        await Slot.findByIdAndUpdate(pending.slotId, { status: 'Occupied' });
 
         // Update Dashboard Stats
         const Dashboard = require('../models/Dashboard');
@@ -82,8 +93,10 @@ exports.verifyAllocation = async (req, res) => {
             { upsert: true }
         );
 
-        console.log(`[VERIFY ALLOCATION] Success for ${allocationId}. Slot Occupied. Dashboard Updated.`);
+        // Remove from pending store
+        delete pendingAllocations[allocationId];
 
+        console.log(`[VERIFY ALLOCATION] Success. Allocation saved. Slot ${pending.slotNumber} Occupied.`);
         res.status(200).json({ success: true, message: "Allocation Successful" });
 
     } catch (error) {
@@ -98,19 +111,14 @@ exports.calculateExit = async (req, res) => {
         const { vehicleNumber } = req.body;
         console.log(`[CALC EXIT] Request for ${vehicleNumber}`);
 
-        // Find active allocation
         const allocation = await Allocation.findOne({ vehicleNumber, isVerified: true, user: req.user.id }).populate('slotId');
-        if (!allocation) {
-            console.log(`[CALC EXIT] Vehicle ${vehicleNumber} not found or not verified`);
-            return res.status(404).json({ message: "Vehicle not found" });
-        }
+        if (!allocation) return res.status(404).json({ message: "Vehicle not found" });
 
         const now = new Date();
         const entry = new Date(allocation.entryTime);
         const diffMs = now - entry;
         const diffHrs = Math.ceil(diffMs / (1000 * 60 * 60));
 
-        // Pricing Logic
         const days = Math.ceil(diffHrs / 24) || 1;
         let rate = 0;
         if (allocation.vehicleType === '2W') rate = 20;
@@ -118,8 +126,6 @@ exports.calculateExit = async (req, res) => {
         else if (allocation.vehicleType === 'Big') rate = 100;
 
         const amount = days * rate;
-
-        // NO NEW OTP GENERATION - Use existing OTP
 
         res.status(200).json({
             success: true,
@@ -132,7 +138,7 @@ exports.calculateExit = async (req, res) => {
                 days,
                 slotNumber: allocation.slotId.slotNumber
             },
-            mockOtp: allocation.otp // Return original OTP if needed for testing, or user must know it
+            mockOtp: allocation.otp
         });
 
     } catch (error) {
@@ -145,21 +151,15 @@ exports.calculateExit = async (req, res) => {
 exports.verifyDeallocation = async (req, res) => {
     try {
         const { vehicleNumber, otp, amount, durationHours } = req.body;
-        console.log(`[VERIFY EXIT] Request for ${vehicleNumber} with OTP ${otp}`);
+        console.log(`[VERIFY EXIT] Request for ${vehicleNumber}`);
 
         const allocation = await Allocation.findOne({ vehicleNumber, isVerified: true, user: req.user.id }).populate('slotId');
-        if (!allocation) {
-            console.log(`[VERIFY EXIT] Allocation not found for ${vehicleNumber}`);
-            return res.status(404).json({ message: "Allocation not found" });
-        }
+        if (!allocation) return res.status(404).json({ message: "Allocation not found" });
 
-        // CHECK AGAINST STORED OTP
         if (allocation.otp !== otp) {
-            console.log(`[VERIFY EXIT] Invalid OTP. Expected: ${allocation.otp}, Got: ${otp}`);
             return res.status(400).json({ message: "Invalid OTP" });
         }
 
-        // Create History Record
         const history = new History({
             user: req.user.id,
             vehicleNumber: allocation.vehicleNumber,
@@ -172,32 +172,21 @@ exports.verifyDeallocation = async (req, res) => {
             slotNumber: allocation.slotId.slotNumber
         });
         await history.save();
-        console.log(`[VERIFY EXIT] History saved.`);
 
-        // Free the Slot
         await Slot.findByIdAndUpdate(allocation.slotId._id, { status: 'Free' });
-
-        // Delete Allocation
         await Allocation.findByIdAndDelete(allocation._id);
 
-        // Update Dashboard Stats
         const Dashboard = require('../models/Dashboard');
         await Dashboard.findOneAndUpdate(
             { user: req.user.id },
             {
-                $inc: {
-                    filledSlots: -1,
-                    freeSlots: 1,
-                    todaysRevenue: amount,
-                    totalProfit: amount
-                },
+                $inc: { filledSlots: -1, freeSlots: 1, todaysRevenue: amount, totalProfit: amount },
                 $set: { updatedAt: Date.now() }
             },
             { upsert: true }
         );
 
-        console.log(`[VERIFY EXIT] Allocation deleted. Slot ${allocation.slotId.slotNumber} freed. Dashboard Updated.`);
-
+        console.log(`[VERIFY EXIT] Done. Slot ${allocation.slotId.slotNumber} freed.`);
         res.status(200).json({ success: true, message: "Deallocation Successful. Slot is now Free." });
 
     } catch (error) {
@@ -223,17 +212,14 @@ exports.deleteActiveAllocation = async (req, res) => {
         const allocation = await Allocation.findOne({ _id: id, user: req.user.id });
         if (!allocation) return res.status(404).json({ message: "Allocation not found" });
 
-        // Free the Slot
         await Slot.findByIdAndUpdate(allocation.slotId, { status: 'Free' });
 
-        // Update Dashboard Stats
         const Dashboard = require('../models/Dashboard');
         await Dashboard.findOneAndUpdate(
             { user: req.user.id },
             { $inc: { filledSlots: -1, freeSlots: 1 }, $set: { updatedAt: Date.now() } }
         );
 
-        // Delete Allocation
         await Allocation.findByIdAndDelete(id);
 
         res.status(200).json({ success: true, message: "Allocation deleted and slot freed" });

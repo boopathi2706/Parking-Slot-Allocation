@@ -6,6 +6,7 @@ import OTPModal from '../components/OTPModal';
 import GlassCard from '../components/GlassCard';
 import BackArrow from '../components/BackArrow';
 import { motion } from 'framer-motion';
+import BASE_URL from '../api';
 
 const DeallocateSlot = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const DeallocateSlot = () => {
     const toastId = toast.loading("Calculating...");
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('https://parking-slot-allocation.onrender.com/api/allocations/calculate-exit', { vehicleNumber }, {
+      const res = await axios.post(`${BASE_URL}/api/allocations/calculate-exit`, { vehicleNumber }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPreview(res.data);
@@ -38,7 +39,7 @@ const DeallocateSlot = () => {
     try {
       // 1. Complete Exit
       const token = localStorage.getItem('token');
-      await axios.post('https://parking-slot-allocation.onrender.com/api/allocations/complete-exit', {
+      await axios.post(`${BASE_URL}/api/allocations/complete-exit`, {
         vehicleNumber: preview.data.vehicleNumber,
         otp,
         amount: preview.data.amount,

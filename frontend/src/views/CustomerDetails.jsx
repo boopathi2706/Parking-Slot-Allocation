@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/GlassCard';
 import BackArrow from '../components/BackArrow';
 import { motion, AnimatePresence } from 'framer-motion';
+import BASE_URL from '../api';
 
 const CustomerDetails = () => {
     const navigate = useNavigate();
@@ -22,12 +23,10 @@ const CustomerDetails = () => {
             }
 
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            // Using consistent API base matching Dashboard
-            const API_BASE = "https://parking-slot-allocation.onrender.com/api";
 
             const [activeRes, historyRes] = await Promise.allSettled([
-                axios.get(`${API_BASE}/allocations`, config),
-                axios.get(`${API_BASE}/history`, config)
+                axios.get(`${BASE_URL}/api/allocations`, config),
+                axios.get(`${BASE_URL}/api/history`, config)
             ]);
 
             let combined = [];
@@ -61,7 +60,7 @@ const CustomerDetails = () => {
         try {
             const token = localStorage.getItem('token');
             const endpoint = type === 'active' ? `allocations/${id}` : `history/${id}`;
-            await axios.delete(`https://parking-slot-allocation.onrender.com/api/${endpoint}`, {
+            await axios.delete(`${BASE_URL}/api/${endpoint}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("Record purged", { id: toastId });

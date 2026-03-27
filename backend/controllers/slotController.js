@@ -48,10 +48,99 @@ exports.initializeSlots = async (req, res) => {
     }
 };
 
-// Get All Slots
+// Add Extra Slots (without deleting existing ones)
+exports.addSlots = async (req, res) => {
+    try {
+        let { twoWheeler, fourWheeler, bigVehicle } = req.body;
+
+        twoWheeler = parseInt(twoWheeler) || 0;
+        fourWheeler = parseInt(fourWheeler) || 0;
+        bigVehicle = parseInt(bigVehicle) || 0;
+
+        console.log(`[ADD SLOTS] Adding: 2W=${twoWheeler}, 4W=${fourWheeler}, Big=${bigVehicle}`);
+
+        // Get existing slots to determine current max slot numbers per type
+        const existingSlots = await Slot.find({ user: req.user.id });
+
+        const getMaxCount = (type) => {
+            const typeSlots = existingSlots.filter(s => s.type === type);
+            if (typeSlots.length === 0) return 0;
+            const nums = typeSlots.map(s => {
+                const parts = s.slotNumber.split('-');
+                return parseInt(parts[parts.length - 1]) || 0;
+            });
+            return Math.max(...nums);
+        };
+
+        const newSlots = [];
+
+        const appendSlotBatch = (type, qty, startFrom) => {
+            let count = startFrom + 1;
+            for (let i = 0; i < qty; i++) {
+                newSlots.push({
+                    user: req.user.id,
+                    slotNumber: `${type}-${count++}`,
+                    type: type,
+                    status: 'Free'
+                });
+            }
+        };
+
+        appendSlotBatch('2W', twoWheeler, getMaxCount('2W'));
+        appendSlotBatch('4W', fourWheeler, getMaxCount('4W'));
+        appendSlotBatch('Big', bigVehicle, getMaxCount('Big'));
+
+        if (newSlots.length === 0) {
+            return res.status(400).json({ message: "No slots to add. Please enter at least 1." });
+        }
+
+        await Slot.insertMany(newSlots);
+        console.log(`[ADD SLOTS] Added ${newSlots.length} new slots for user: ${req.user.id}`);
+
+        // Update Dashboard total slots count
+        const Dashboard = require('../models/Dashboard');
+        await Dashboard.findOneAndUpdate(
+            { user: req.user.id },
+            { $inc: { totalSlots: newSlots.length, freeSlots: newSlots.length }, $set: { updatedAt: Date.now() } }
+        );
+
+        res.status(201).json({ success: true, message: `${newSlots.length} slots added successfully`, count: newSlots.length });
+    } catch (error) {
+        console.error(`[ADD SLOTS] Error: ${error.message}`);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+// Get All Slots (correctly sorted numerically)
 exports.getSlots = async (req, res) => {
     try {
-        const slots = await Slot.find({ user: req.user.id }).sort({ slotNumber: 1 });
+        const slots = await Slot.find({ user: req.user.id });
+        // Sort by type prefix then numeric slot number (e.g. 2W-1, 2W-2, ... 2W-10)
+        slots.sort((a, b) => {
+            if (a.type !== b.type) return a.type.localeCompare(b.type);
+            const numA = parseInt(a.slotNumber.split('-').pop()) || 0;
+            const numB = parseInt(b.slotNumber.split('-').pop()) || 0;
+            return numA - numB;
+        });
+        res.status(200).json(slots);
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+// Get Free Slots by Type (for dropdown in Slot Allocation form)
+exports.getFreeSlots = async (req, res) => {
+    try {
+        const { type } = req.query;
+        const query = { user: req.user.id, status: 'Free' };
+        if (type) query.type = type;
+        const slots = await Slot.find(query);
+        // Sort numerically
+        slots.sort((a, b) => {
+            const numA = parseInt(a.slotNumber.split('-').pop()) || 0;
+            const numB = parseInt(b.slotNumber.split('-').pop()) || 0;
+            return numA - numB;
+        });
         res.status(200).json(slots);
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
@@ -104,3 +193,5 @@ exports.updateSlotStatus = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+
+

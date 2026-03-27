@@ -6,6 +6,7 @@ import { MdTwoWheeler, MdDirectionsCar, MdLocalShipping } from "react-icons/md";
 import GlassCard from '../components/GlassCard';
 import BackArrow from '../components/BackArrow';
 import { motion } from 'framer-motion';
+import BASE_URL from '../api';
 
 const ConfigInput = ({ label, icon, name, placeholder, value, onChange }) => (
   <div className="space-y-2">
@@ -36,7 +37,7 @@ const VehicleConfig = () => {
     const toastId = toast.loading('Initializing Slots...');
     try {
       const token = localStorage.getItem('token');
-      await axios.put('https://parking-slot-allocation.onrender.com/api/user/vehicle-config', config, {
+      await axios.put(`${BASE_URL}/api/user/vehicle-config`, config, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Slots Configured Successfully!', { id: toastId });

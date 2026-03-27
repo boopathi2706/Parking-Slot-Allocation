@@ -4,6 +4,7 @@ import { MdDashboard, MdLocalParking, MdAttachMoney, MdDirectionsCar, MdQuerySta
 import { Link, useNavigate } from 'react-router-dom';
 import GlassCard from '../components/GlassCard';
 import { motion } from 'framer-motion';
+import BASE_URL from '../api';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const Dashboard = () => {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('https://parking-slot-allocation.onrender.com/api/dashboard', {
+        const res = await axios.get(`${BASE_URL}/api/dashboard`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         console.log("[FRONTEND DASHBOARD] Received Data:", res.data);

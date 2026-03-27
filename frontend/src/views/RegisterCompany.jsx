@@ -5,6 +5,8 @@ import { MdVisibility, MdVisibilityOff, MdBusiness, MdPerson, MdEmail, MdLock, M
 import toast, { Toaster } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
+import BASE_URL from '../api';
+
 
 const InputField = ({ icon, ...props }) => (
   <div className="relative">
@@ -28,7 +30,7 @@ const RegisterCompany = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("https://parking-slot-allocation.onrender.com/api/auth/register", formData);
+      const response = await axios.post(`${BASE_URL}/api/auth/register`, formData);
       localStorage.setItem("token", response.data.token);
       toast.success("Account Created!");
       setTimeout(() => navigate("/vehicle-config"), 1000);
@@ -83,20 +85,24 @@ const RegisterCompany = () => {
             required
           />
 
-          <div className="relative">
-            <div className="absolute left-3 top-3.5 text-gray-400 text-xl"><MdLock /></div>
-            <input
-              name="password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              placeholder="Password"
-              onChange={handleChange}
-              className="w-full pl-10 pr-10 py-3 bg-white/50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-              required
-            />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-blue-500">
-              {showPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
-            </button>
+          <div>
+            <div className="relative">
+              <div className="absolute left-3 top-3.5 text-gray-400 text-xl"><MdLock /></div>
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                placeholder="Min. 8 characters"
+                onChange={handleChange}
+                className="w-full pl-10 pr-10 py-3 bg-white/50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                required
+                minLength={8}
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-blue-500">
+                {showPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 ml-1 mt-1">Password must be at least 8 characters.</p>
           </div>
 
           <motion.button
